@@ -1,0 +1,78 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Admin Dashboard</title>
+  <link rel="stylesheet" href="/css/style.css">
+</head>
+<body>
+  <div class="container">
+    <div class="dashboard-header">
+      <h2 style="color: var(--danger);">Admin Dashboard</h2>
+      <div>
+        <a href="/dashboard.html" class="btn btn-primary" style="margin-right: 1rem;">Test Tool</a>
+        <button onclick="handleLogout()" class="btn btn-outline">Logout</button>
+      </div>
+    </div>
+
+    <div class="card">
+      <h3 style="margin-top:0;">User Monitoring</h3>
+      
+      <div id="loading">Loading database users...</div>
+      
+      <div class="table-wrapper" id="userTableWrapper" style="display:none;">
+        <table>
+          <thead>
+            <tr>
+              <th>ID</th>
+              <th>Email</th>
+              <th>Role</th>
+              <th>Blocked Status</th>
+            </tr>
+          </thead>
+          <tbody id="userList"></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <script src="/js/app.js"></script>
+  <script>
+    const token = checkAuth('admin');
+
+    async function fetchUsers() {
+      if (!token) return;
+
+      try {
+        const res = await fetch('/api/admin/users', {
+          headers: { 'Authorization': `Bearer ${token}` }
+        });
+
+        if (res.ok) {
+          const users = await res.json();
+          document.getElementById('loading').style.display = 'none';
+          document.getElementById('userTableWrapper').style.display = 'block';
+
+          const tbody = document.getElementById('userList');
+          tbody.innerHTML = users.map(u => `
+            <tr>
+              <td style="font-family: monospace; color:#64748b; font-size:0.875rem;">${u._id}</td>
+              <td style="font-weight: 500;">${u.email}</td>
+              <td><span style="background: ${u.role === 'admin' ? '#fef2f2' : '#f0fdf4'}; color: ${u.role === 'admin' ? '#dc2626' : '#16a34a'}; padding: 0.25rem 0.5rem; border-radius: 4px; font-size: 0.75rem; font-weight: bold;">${u.role.toUpperCase()}</span></td>
+              <td>${u.isBlocked ? '🛑 Blocked' : '✅ Active'}</td>
+            </tr>
+          `).join('');
+        } else {
+          document.getElementById('loading').innerText = 'Failed to load users (Auth error)';
+        }
+      } catch (e) {
+        document.getElementById('loading').innerText = 'Network error fetching users.';
+      }
+    }
+
+    if (token) {
+      fetchUsers();
+    }
+  </script>
+</body>
+</html>

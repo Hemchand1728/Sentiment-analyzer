@@ -1,0 +1,32 @@
+{% extends 'layout.html' %}
+
+{% block content %}
+<div class="card wide mb-4">
+    <h2>Sentiment Analyzer</h2>
+    <textarea id="text" placeholder="Enter text to analyze..." style="min-height: 120px; margin-bottom: 1.5rem;"></textarea>
+    <button onclick="analyze()">Analyze</button>
+    <div id="result" style="display: none;"></div>
+</div>
+
+<script>
+window.addEventListener("pageshow", function (event) {
+    if (event.persisted || performance.getEntriesByType("navigation")[0].type === "back_forward") {
+        window.location.reload();
+    }
+});
+</script>
+
+<script>
+fetch('/check-session', {
+    credentials: 'same-origin'
+})
+.then(res => res.json())
+.then(data => {
+    if (!data.logged_in) {
+        window.location.href = '/login';
+    }
+});
+</script>
+
+<script src="/static/script.js"></script>
+{% endblock %}
