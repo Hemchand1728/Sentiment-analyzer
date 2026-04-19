@@ -178,9 +178,21 @@ document.addEventListener('DOMContentLoaded', () => {
             if (feedbackList) feedbackList.innerHTML = html;
 
             if (hasUnseenResolved && notificationBanner) {
-                notificationBanner.style.display = 'block';
-                // Mark as seen
-                fetch('/api/user/feedback/mark-seen', { method: 'POST' });
+                // Mark as seen and show notification ONLY if backend confirmed update
+                fetch('/api/user/feedback/mark-seen', { method: 'POST' })
+                    .then(r => r.json())
+                    .then(d => {
+                        if (d.success === true) {
+                            notificationBanner.style.display = 'block';
+                            setTimeout(() => {
+                                notificationBanner.style.opacity = "0";
+                                setTimeout(() => {
+                                    if (notificationBanner) notificationBanner.remove();
+                                }, 500);
+                            }, 5000);
+                        }
+                    })
+                    .catch(e => console.error("Error marking feedback seen:", e));
             }
         })
         .catch(err => {

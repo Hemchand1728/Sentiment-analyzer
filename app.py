@@ -1,5 +1,7 @@
 from flask import Flask, render_template, request, jsonify, redirect, session, make_response
 from pymongo import MongoClient
+from pymongo.errors import OperationFailure, ConnectionFailure
+import sys
 from bson.objectid import ObjectId
 import bcrypt
 from models.sentiment import get_sentiment, extract_keywords
@@ -21,6 +23,18 @@ if not secret:
     raise ValueError("SECRET_KEY is not set in environment variables")
 app.secret_key = secret
 app.config['SESSION_PERMANENT'] = False
+
+@app.errorhandler(OperationFailure)
+def handle_db_auth_error(e):
+    if request.path.startswith('/api/') or request.is_json:
+        return jsonify({"error": "Database authentication failure. Please check server configuration."}), 500
+    return "<h3>Database Authentication Error</h3><p>Please check your database credentials or contact the administrator.</p>", 500
+
+@app.errorhandler(ConnectionFailure)
+def handle_db_conn_error(e):
+    if request.path.startswith('/api/') or request.is_json:
+        return jsonify({"error": "Database connection failure. Please try again later."}), 500
+    return "<h3>Database Connection Error</h3><p>Unable to connect to the database. Please try again later.</p>", 500
 
 @app.after_request
 def add_no_cache_headers(response):
@@ -53,7 +67,22 @@ def restrict_access():
 mongo_uri = os.getenv("MONGO_URI")
 if not mongo_uri:
     raise ValueError("MONGO_URI is not set in environment variables")
-client = MongoClient(mongo_uri)
+
+try:
+    # Initializing client with a timeout so it fails fast on connection issues
+    client = MongoClient(mongo_uri, serverSelectionTimeoutMS=5000)
+    # Ping the server to verify connection and authentication immediately, avoiding lazy connection errors later.
+    client.admin.command('ping')
+except OperationFailure as e:
+    print(f"CRITICAL: MongoDB Authentication failed: {e}")
+    print("Ensure your MONGO_URI includes the correct credentials and authSource (e.g. ?authSource=admin).")
+    # Instead of exiting here, we could let the app run but database calls will fail. 
+    # For a Flask app, it's often better to fail fast or gracefully handle it.
+except ConnectionFailure as e:
+    print(f"CRITICAL: MongoDB Connection failed: {e}")
+except Exception as e:
+    print(f"CRITICAL: An unexpected error occurred with MongoDB: {e}")
+
 db = client["sentiment_db"]
 
 users = db["users"]
@@ -108,12 +137,17 @@ def login():
         login_id = request.form['login_id']
         password = request.form['password']
 
-        user = users.find_one({
-            "$or": [
-                {"email": login_id},
-                {"username": login_id}
-            ]
-        })
+        try:
+            user = users.find_one({
+                "$or": [
+                    {"email": login_id},
+                    {"username": login_id}
+                ]
+            })
+        except OperationFailure:
+            return render_template('user-login.html', show_navbar=False, error="Database authentication error. Please contact the administrator.")
+        except ConnectionFailure:
+            return render_template('user-login.html', show_navbar=False, error="Database connection failed. Please try again later.")
 
         if user and bcrypt.checkpw(password.encode(), user['password']):
             if user.get('isBlocked', False):
@@ -141,12 +175,17 @@ def admin_login():
         # 1) New schema: { username, isAdmin: True, password: hashed }
         # 2) Your current schema: { name, role: "admin", password: plain }
 
-        user = users.find_one({
-            "$or": [
-                {"username": username, "isAdmin": True},
-                {"name": username, "role": "admin"}
-            ]
-        })
+        try:
+            user = users.find_one({
+                "$or": [
+                    {"username": username, "isAdmin": True},
+                    {"name": username, "role": "admin"}
+                ]
+            })
+        except OperationFailure:
+            return render_template('admin-login.html', show_navbar=False, error="Database authentication error. Please check your config.")
+        except ConnectionFailure:
+            return render_template('admin-login.html', show_navbar=False, error="Database connection failed. Try again later.")
 
         if not user:
             return render_template('admin-login.html', show_navbar=False, error="Invalid admin credentials.")
@@ -996,12 +1035,15 @@ def mark_feedback_seen():
         
     user_id = session.get('user') or session.get('admin')
     
-    feedback_db.update_many(
+    res = feedback_db.update_many(
         {"user": user_id, "status": "resolved", "seen": {"$ne": True}},
         {"$set": {"seen": True}}
     )
     
-    return jsonify({"success": True})
+    if res.modified_count > 0:
+        return jsonify({"success": True})
+    else:
+        return jsonify({"success": False})
 
 @app.route('/api/admin/feedback', methods=['GET'])
 def get_feedback():
