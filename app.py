@@ -7,11 +7,19 @@ from models.twitter_analyzer import TwitterAnalyzer
 
 from datetime import datetime
 from collections import Counter
+from dotenv import load_dotenv
+
 import os
+
+load_dotenv()
+
 
 app = Flask(__name__)
 # Generate a new session key on restart to invalidate cached sessions (forces login)
-app.secret_key = os.environ.get("SECRET_KEY", "mysecret123")
+secret = os.getenv("SECRET_KEY")
+if not secret:
+    raise ValueError("SECRET_KEY is not set in environment variables")
+app.secret_key = secret
 app.config['SESSION_PERMANENT'] = False
 
 @app.after_request
@@ -42,7 +50,10 @@ def restrict_access():
 
     return redirect('/login')
 
-client = MongoClient(os.environ.get("MONGO_URI", "mongodb+srv://admin:admin123@cluster0.f2crrd1.mongodb.net/?retryWrites=true&w=majority"))
+mongo_uri = os.getenv("MONGO_URI")
+if not mongo_uri:
+    raise ValueError("MONGO_URI is not set in environment variables")
+client = MongoClient(mongo_uri)
 db = client["sentiment_db"]
 
 users = db["users"]
@@ -206,6 +217,8 @@ def dashboard():
     if 'user' not in session and 'admin' not in session:
         return redirect('/login')
     user_email = session.get('user')
+    if not user_email:
+        return redirect('/login')
     pipeline = [
         {"$match": {"user": user_email, "source": "twitter", "keyword": {"$exists": True, "$ne": None}}},
         {
@@ -341,7 +354,7 @@ def analyze_twitter():
     print("Keyword:", keyword)
     
     # Fetch tweets using Tweepy v2 Client
-    bearer_token = os.environ.get("TWITTER_BEARER_TOKEN")
+    bearer_token = os.getenv("TWITTER_BEARER_TOKEN")
     print("Bearer Token:", "PRESENT" if bearer_token else "MISSING")
     
     if not bearer_token:
