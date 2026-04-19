@@ -109,6 +109,12 @@ function renderBarChart(barData) {
                 legend: { display: false }
             },
             scales: {
+                x: {
+                    ticks: {
+                        maxRotation: 45,
+                        minRotation: 0
+                    }
+                },
                 y: { beginAtZero: true }
             },
             animation: {
@@ -120,6 +126,19 @@ function renderBarChart(barData) {
 }
 
 function renderLineChart(lineData) {
+    if (!lineData || !lineData.labels || lineData.labels.length === 0) {
+        const container = document.getElementById('lineChart').parentNode;
+        container.innerHTML = '<div style="text-align:center; padding: 40px; color: #64748b; font-weight: 500;">Not enough data to display trend</div>';
+        return;
+    }
+
+    if (lineData.labels.length === 1) {
+        lineData.labels.push(lineData.labels[0] + " (Current)");
+        lineData.positive.push(lineData.positive[0]);
+        lineData.negative.push(lineData.negative[0]);
+        lineData.neutral.push(lineData.neutral[0]);
+    }
+
     const ctx = document.getElementById('lineChart').getContext('2d');
     new Chart(ctx, {
         type: 'line',
@@ -129,26 +148,35 @@ function renderLineChart(lineData) {
                 {
                     label: 'Positive',
                     data: lineData.positive,
-                    borderColor: '#22c55e',
+                    borderColor: 'green',
                     backgroundColor: 'rgba(34, 197, 94, 0.1)',
                     fill: true,
-                    tension: 0.4
+                    tension: 0.4,
+                    borderWidth: 3,
+                    pointRadius: 4,
+                    spanGaps: true
                 },
                 {
                     label: 'Negative',
                     data: lineData.negative,
-                    borderColor: '#f97316',
+                    borderColor: 'red',
                     backgroundColor: 'rgba(249, 115, 22, 0.1)',
                     fill: true,
-                    tension: 0.4
+                    tension: 0.4,
+                    borderWidth: 3,
+                    pointRadius: 4,
+                    spanGaps: true
                 },
                 {
                     label: 'Neutral',
                     data: lineData.neutral,
-                    borderColor: '#64748b',
+                    borderColor: 'gray',
                     backgroundColor: 'rgba(100, 116, 139, 0.12)',
                     fill: true,
-                    tension: 0.4
+                    tension: 0.4,
+                    borderWidth: 3,
+                    pointRadius: 4,
+                    spanGaps: true
                 }
             ]
         },

@@ -17,7 +17,6 @@
 <div class="mod-section">
     <div style="display:flex; justify-content: space-between; align-items:center; gap: 1rem; flex-wrap: wrap;">
         <h3 style="margin-top: 0; margin-bottom: 0.25rem; font-size: 1.25rem;">Comments</h3>
-        <button class="mod-btn btn-block" type="button" onclick="blockUser('{{ email }}')">Block User</button>
     </div>
     <div class="text-muted" style="margin-bottom: 1rem;">Flagged comments are highlighted.</div>
 
@@ -47,11 +46,6 @@
                         </td>
                         <td style="font-size: 0.875rem; color: rgba(15, 23, 42, 0.62);">{{ item.created_at }}</td>
                         <td style="white-space: nowrap;">
-                            {% if not item.flagged %}
-                                <button class="mod-btn btn-flag" onclick="modAction('flag', '{{ item._id }}')">Flag</button>
-                            {% else %}
-                                <button class="mod-btn btn-safe" onclick="modAction('safe', '{{ item._id }}')">Mark Safe</button>
-                            {% endif %}
                             <button class="mod-btn btn-del" onclick="modAction('delete', '{{ item._id }}')">Delete</button>
                         </td>
                     </tr>
@@ -83,25 +77,6 @@
         }
     }
 
-    async function blockUser(email) {
-        if (!confirm(`Block user ${email}?`)) return;
-        try {
-            const res = await fetch(`/admin/block`, {
-                method: 'POST',
-                credentials: 'same-origin',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ email })
-            });
-            const data = await res.json();
-            if (data.success) {
-                alert(data.message || 'User blocked.');
-            } else {
-                alert('Failed to block: ' + (data.error || 'Unknown error'));
-            }
-        } catch (e) {
-            alert('Server error');
-        }
-    }
 </script>
 
 <script>

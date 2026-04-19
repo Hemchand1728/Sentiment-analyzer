@@ -1,13 +1,13 @@
 {% extends 'layout.html' %}
 
 {% block content %}
-<div class="auth-shell">
+<div style="display: flex; flex-direction: column; align-items: center; width: 100%;">
     <div class="auth-hero">
         <h1 class="auth-title">Admin Access</h1>
         <p class="auth-subtitle">Sign in to manage comments, moderate content, and block users.</p>
     </div>
 
-    <div class="card auth-card">
+    <div class="auth-card">
         <h2 style="margin-bottom: 1.25rem;">Admin Login</h2>
 
         {% if error %}
@@ -25,11 +25,11 @@
                 <input id="password" name="password" type="password" placeholder="Enter password" required />
             </div>
 
-            <button type="submit" class="btn btn-gradient">Sign In</button>
+            <button type="submit" class="btn btn-gradient" style="width: 100%;">Sign In</button>
         </form>
 
         <p class="text-center text-muted mt-3">
-            Not an admin? <a href="{{ url_for('login') }}" class="auth-link">Go to user login</a>
+            Not an admin? <a href="{{ url_for('login') }}" style="color: #3b82f6; text-decoration: none; font-weight: 500;">Go to user login</a>
         </p>
     </div>
 </div>

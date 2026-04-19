@@ -1,13 +1,13 @@
 {% extends 'layout.html' %}
 
 {% block content %}
-<div class="auth-shell">
+<div style="display: flex; flex-direction: column; align-items: center; width: 100%;">
     <div class="auth-hero">
         <h1 class="auth-title">Welcome back</h1>
         <p class="auth-subtitle">Login to access your dashboard and sentiment history.</p>
     </div>
 
-    <div class="card auth-card">
+    <div class="auth-card">
         <h2 style="margin-bottom: 1.25rem;">Login</h2>
 
         {% if error %}
@@ -23,15 +23,15 @@
                 <label for="password">Password</label>
                 <input id="password" name="password" type="password" placeholder="Enter your password" required>
             </div>
-            <button type="submit" class="btn btn-gradient">Access Dashboard</button>
+            <button type="submit" class="btn btn-gradient" style="width: 100%;">Access Dashboard</button>
         </form>
 
         <p class="text-center mt-3 text-muted">
-            Don’t have an account? <a href="/register" class="auth-link">Register here</a>
+            Don’t have an account? <a href="/register" style="color: #3b82f6; text-decoration: none; font-weight: 500;">Register here</a>
         </p>
 
         <p class="text-center mt-3 text-muted">
-            Admin? <a href="/admin-login" class="auth-link">Login here</a>
+            Admin? <a href="/admin-login" style="color: #3b82f6; text-decoration: none; font-weight: 500;">Login here</a>
         </p>
     </div>
 </div>

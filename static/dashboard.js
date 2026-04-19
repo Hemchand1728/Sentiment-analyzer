@@ -1,6 +1,5 @@
 document.addEventListener('DOMContentLoaded', () => {
     
-    const totalCountEl = document.getElementById('total-count');
     const positiveCountEl = document.getElementById('positive-count');
     const negativeCountEl = document.getElementById('negative-count');
     const neutralCountEl = document.getElementById('neutral-count');
@@ -17,68 +16,62 @@ document.addEventListener('DOMContentLoaded', () => {
         }).format(date);
     };
 
-    const historyBody = document.getElementById('history-body');
-    if (historyBody) {
-        historyBody.innerHTML = ''; 
+    const keywordsGrid = document.getElementById('keywords-grid');
+    if (keywordsGrid) {
+        keywordsGrid.innerHTML = ''; 
         
         historyData.forEach(item => {
-            if (item.sentiment === 'Positive') positiveCount++;
-            else if (item.sentiment === 'Negative' || item.sentiment === 'Toxic') negativeCount++;
-            else neutralCount++;
+            positiveCount += (item.positive || 0);
+            negativeCount += (item.negative || 0);
+            neutralCount += (item.neutral || 0);
 
-            const tr = document.createElement('tr');
+            const card = document.createElement('div');
+            card.className = 'saas-card keyword-card';
             
-            const rawDate = item.created_at || item.date;
+            const rawDate = item.latest_date;
             const dateObj = rawDate ? new Date(rawDate) : new Date();
 
-            const tdDate = document.createElement('td');
-            tdDate.textContent = formatDate(dateObj);
-            
-            const tdText = document.createElement('td');
-            tdText.textContent = item.text || '';
-            
-            const sentimentStr = item.sentiment || 'Neutral';
-            let emoji = '😐';
-            let badgeClass = sentimentStr.toLowerCase();
-            
-            if (sentimentStr === 'Positive') emoji = '😊';
-            else if (sentimentStr === 'Negative' || sentimentStr === 'Toxic') {
-                emoji = '😠';
-                badgeClass = 'negative';
-            }
+            let keywordLabel = item.keyword || 'Unknown';
+            // Title case the keyword
+            keywordLabel = keywordLabel.charAt(0).toUpperCase() + keywordLabel.slice(1);
 
-            const tdSentiment = document.createElement('td');
-            const badge = document.createElement('span');
-            badge.className = `badge ${badgeClass}`;
-            badge.innerHTML = `<span>${emoji}</span> ${badgeClass === 'negative' ? 'Negative' : sentimentStr}`;
-            tdSentiment.appendChild(badge);
+            card.innerHTML = `
+                <div class="keyword-header" style="justify-content: space-between;">
+                    <div style="display: flex; align-items: center; gap: 8px;">
+                        <h3 class="keyword-title" style="margin: 0;">#${keywordLabel}</h3>
+                        <span class="keyword-date" style="margin: 0;">${formatDate(dateObj)}</span>
+                    </div>
+                    <form action="/delete-keyword/${encodeURIComponent(item.keyword)}" method="POST" style="margin: 0;" onsubmit="return confirm('Are you sure you want to delete all history for this keyword?');">
+                        <button type="submit" style="background: rgba(239, 68, 68, 0.15); border: 1px solid rgba(239, 68, 68, 0.4); color: #ef4444; border-radius: 4px; padding: 4px 10px; cursor: pointer; transition: all 0.2s; font-size: 0.85rem;" onmouseover="this.style.background='rgba(239, 68, 68, 0.3)'" onmouseout="this.style.background='rgba(239, 68, 68, 0.15)'">
+                            Delete
+                        </button>
+                    </form>
+                </div>
+                <div class="keyword-stats">
+                    <div class="k-stat k-positive">
+                        <span class="k-icon">😊</span>
+                        <span class="k-value">${item.positive || 0}</span>
+                    </div>
+                    <div class="k-stat k-negative">
+                        <span class="k-icon">😠</span>
+                        <span class="k-value">${item.negative || 0}</span>
+                    </div>
+                    <div class="k-stat k-neutral">
+                        <span class="k-icon">😐</span>
+                        <span class="k-value">${item.neutral || 0}</span>
+                    </div>
+                </div>
+                <div class="keyword-total">
+                    Total Tweets: <strong>${item.total || 0}</strong>
+                </div>
+            `;
 
-            const tdAction = document.createElement('td');
-            if (item._id) {
-                const form = document.createElement('form');
-                form.method = 'POST';
-                form.action = `/delete/${item._id}`;
-                form.style.display = 'inline';
-                const btn = document.createElement('button');
-                btn.type = 'submit';
-                btn.textContent = 'Delete';
-                btn.className = 'btn-delete';
-                form.appendChild(btn);
-                tdAction.appendChild(form);
-            }
-
-            tr.appendChild(tdDate);
-            tr.appendChild(tdText);
-            tr.appendChild(tdSentiment);
-            tr.appendChild(tdAction);
-
-            historyBody.appendChild(tr);
+            keywordsGrid.appendChild(card);
         });
 
-        animateValue(totalCountEl, 0, historyData.length, 1000);
-        animateValue(positiveCountEl, 0, positiveCount, 1000);
-        animateValue(negativeCountEl, 0, negativeCount, 1000);
-        animateValue(neutralCountEl, 0, neutralCount, 1000);
+        if (positiveCountEl) animateValue(positiveCountEl, 0, positiveCount, 1000);
+        if (negativeCountEl) animateValue(negativeCountEl, 0, negativeCount, 1000);
+        if (neutralCountEl) animateValue(neutralCountEl, 0, neutralCount, 1000);
 
         const ctx = document.getElementById('sentimentChart');
         if (ctx && historyData.length > 0) {
@@ -140,4 +133,58 @@ document.addEventListener('DOMContentLoaded', () => {
         };
         window.requestAnimationFrame(step);
     }
+    
+    // Load User Feedback
+    fetch('/api/user/feedback')
+        .then(res => res.json())
+        .then(data => {
+            const feedbackList = document.getElementById('my-feedback-list');
+            const notificationBanner = document.getElementById('notification-banner');
+            let hasUnseenResolved = false;
+
+            if (data.error) {
+                feedbackList.innerHTML = `<div style="color: red;">Error loading feedback</div>`;
+                return;
+            }
+
+            if (data.length === 0) {
+                feedbackList.innerHTML = `<div style="color: #6b7280; font-size: 0.9rem;">No feedback submitted yet.</div>`;
+                return;
+            }
+
+            let html = `<div style="display: flex; flex-direction: column; gap: 10px;">`;
+            data.forEach(item => {
+                if (item.status === 'resolved' && !item.seen) {
+                    hasUnseenResolved = true;
+                }
+
+                const statusColor = item.status === 'resolved' ? '#166534' : '#b45309';
+                const statusBg = item.status === 'resolved' ? '#dcfce7' : '#fef3c7';
+
+                html += `
+                    <div style="border: 1px solid #e5e7eb; border-radius: 8px; padding: 15px; background: #fff;">
+                        <div style="display: flex; justify-content: space-between; align-items: start; margin-bottom: 8px;">
+                            <span style="font-weight: 600; font-size: 0.85rem; color: #4b5563;">${item.type}</span>
+                            <span style="background: ${statusBg}; color: ${statusColor}; padding: 2px 8px; border-radius: 6px; font-size: 0.75rem; font-weight: 600; text-transform: uppercase;">
+                                ${item.status}
+                            </span>
+                        </div>
+                        <div style="font-size: 0.95rem; color: #111827; margin-bottom: 8px;">${item.message}</div>
+                        <div style="font-size: 0.75rem; color: #9ca3af;">${item.created_at || ''}</div>
+                    </div>
+                `;
+            });
+            html += `</div>`;
+            if (feedbackList) feedbackList.innerHTML = html;
+
+            if (hasUnseenResolved && notificationBanner) {
+                notificationBanner.style.display = 'block';
+                // Mark as seen
+                fetch('/api/user/feedback/mark-seen', { method: 'POST' });
+            }
+        })
+        .catch(err => {
+            const feedbackList = document.getElementById('my-feedback-list');
+            if (feedbackList) feedbackList.innerHTML = `<div style="color: red;">Failed to load feedback</div>`;
+        });
 });

@@ -2,13 +2,13 @@
 {% block title %}Register - Sentiment Analyzer{% endblock %}
 
 {% block content %}
-<div class="auth-shell">
+<div style="display: flex; flex-direction: column; align-items: center; width: 100%;">
     <div class="auth-hero">
         <h1 class="auth-title">Create your account</h1>
         <p class="auth-subtitle">Join to analyze sentiment effortlessly.</p>
     </div>
 
-    <div class="card auth-card">
+    <div class="auth-card">
         <h2 style="margin-bottom: 1.25rem;">Register</h2>
 
         {% if error %}
@@ -31,11 +31,11 @@
                 <input type="password" name="password" id="password" placeholder="Create a strong password" required />
             </div>
 
-            <button type="submit" class="btn btn-gradient">Register</button>
+            <button type="submit" class="btn btn-gradient" style="width: 100%;">Register</button>
         </form>
 
         <p class="text-center mt-3 text-muted">
-            Already have an account? <a href="{{ url_for('login') }}" class="auth-link">Login here</a>
+            Already have an account? <a href="{{ url_for('login') }}" style="color: #3b82f6; text-decoration: none; font-weight: 500;">Login here</a>
         </p>
     </div>
 </div>

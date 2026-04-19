@@ -1,28 +1,14 @@
-<nav class="navbar">
+<nav class="saas-navbar">
     <div class="nav-brand">
-        <a href="{{ url_for('home') }}">
-            <span class="brand-mark" aria-hidden="true">📈</span>
-            <span>Sentiment Analyzer</span>
-        </a>
+        <span class="brand-icon">📈</span> Sentiment Analyzer
     </div>
-    <ul class="nav-links">
-        {% if session.get('admin') %}
-            <li><a href="/logout">Logout</a></li>
-        {% else %}
-            <li><a href="/">Home</a></li>
-            <li><a href="/dashboard">Dashboard</a></li>
-
-            {% if session.get('user') %}
-                <li class="nav-user">
-                    <span class="nav-pill">{{ session.get('user') }}</span>
-                </li>
-                {% if session.get('is_admin') %}
-                    <li><a href="/admin" class="nav-admin">Admin</a></li>
-                {% endif %}
-                <li><a href="/logout">Logout</a></li>
-            {% else %}
-                <li><a href="/login">Login</a></li>
-            {% endif %}
+    <div class="nav-links">
+        {% if not session.get('admin') %}
+            <a href="/dashboard" class="nav-item">Analytics Dashboard</a>
         {% endif %}
-    </ul>
+        {% if session.get('is_admin') or session.get('admin') %}
+            <a href="/admin" class="nav-item">Admin Panel</a>
+        {% endif %}
+        <a href="/logout" class="nav-action">Logout</a>
+    </div>
 </nav>

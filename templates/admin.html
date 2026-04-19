@@ -11,7 +11,22 @@
     <div id="alert-zone"></div>
 </div>
 
-<div class="admin-grid">
+<div class="summary-cards" style="margin-bottom: 2rem; display: flex; gap: 1rem;">
+    <div class="summary-card sg-positive" style="flex: 1;">
+        <div class="summary-card-title">Total Positive</div>
+        <div id="total-positive" class="summary-card-value">...</div>
+    </div>
+    <div class="summary-card sg-negative" style="flex: 1;">
+        <div class="summary-card-title">Total Negative</div>
+        <div id="total-negative" class="summary-card-value">...</div>
+    </div>
+    <div class="summary-card sg-neutral" style="flex: 1;">
+        <div class="summary-card-title">Total Neutral</div>
+        <div id="total-neutral" class="summary-card-value">...</div>
+    </div>
+</div>
+
+<div class="admin-grid" style="grid-template-columns: repeat(3, 1fr); gap: 1.5rem; margin-bottom: 2rem;">
     <div class="admin-card">
         <h3>Sentiment Distribution</h3>
         <div class="chart-container">
@@ -34,7 +49,9 @@
     </div>
 </div>
 
-<div class="mod-section">
+</div>
+
+<div class="mod-section" style="margin-bottom: 2rem;">
     <div style="display: flex; justify-content: space-between; align-items: center;">
         <h3 style="margin-top: 0; margin-bottom: 0.25rem; font-size: 1.25rem;">User Moderation</h3>
     </div>
@@ -70,7 +87,6 @@
                         </td>
                         <td style="white-space: nowrap;">
                             <a class="mod-btn btn-safe" href="/admin/user/{{ u.email }}">View</a>
-                            <button class="mod-btn btn-block" type="button" onclick="blockUser('{{ u.email }}')">Block</button>
                         </td>
                     </tr>
                     {% endfor %}
@@ -82,6 +98,70 @@
     {% endif %}
 </div>
 
+<div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1.5rem; margin-bottom: 2rem;">
+    <div class="admin-card">
+        <h3>Keyword Trends (History)</h3>
+        <p class="text-muted" style="font-size: 0.85rem; margin-bottom: 1rem;">Most common topics from all comments</p>
+        <div id="keyword-trends" style="display: flex; flex-wrap: wrap; gap: 10px;">
+            <div class="text-muted">Loading trends...</div>
+        </div>
+    </div>
+    <div class="admin-card">
+        <h3>Top Search Keywords</h3>
+        <p class="text-muted" style="font-size: 0.85rem; margin-bottom: 1rem;">Most searched terms in external modules</p>
+        <div id="top-searches-box" style="display: flex; flex-wrap: wrap; gap: 10px;">
+            <div class="text-muted">Loading searches...</div>
+        </div>
+    </div>
+</div>
+
+<div class="mod-section">
+    <div style="display: flex; justify-content: space-between; align-items: center;">
+        <h3 style="margin-top: 0; margin-bottom: 0.25rem; font-size: 1.25rem;">Recent Activity</h3>
+    </div>
+    <div class="text-muted" style="margin-bottom: 1rem;">Latest comments processed by the system.</div>
+
+    <div class="mod-table-wrapper recent-activity">
+        <table class="mod-table" id="recent-activity-table">
+            <thead>
+                <tr>
+                    <th>User</th>
+                    <th>Text</th>
+                    <th style="width: 140px;">Sentiment</th>
+                    <th style="width: 150px;">Timestamp</th>
+                </tr>
+            </thead>
+            <tbody id="recent-table-body">
+                <tr><td colspan="4" class="text-center text-muted">Loading...</td></tr>
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<div class="mod-section" style="margin-top: 2rem;">
+    <div style="display: flex; justify-content: space-between; align-items: center;">
+        <h3 style="margin-top: 0; margin-bottom: 0.25rem; font-size: 1.25rem;">Feedback Management</h3>
+    </div>
+    <div class="text-muted" style="margin-bottom: 1rem;">Monitor and resolve user issues and suggestions.</div>
+
+    <div class="mod-table-wrapper">
+        <table class="mod-table" id="feedback-table">
+            <thead>
+                <tr>
+                    <th>User</th>
+                    <th>Message</th>
+                    <th style="width: 120px;">Type</th>
+                    <th style="width: 120px;">Status</th>
+                    <th style="width: 180px;">Actions</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr><td colspan="5" class="text-center text-muted">Loading feedback...</td></tr>
+            </tbody>
+        </table>
+    </div>
+</div>
+
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 <script>
     let pieChartInstance;
@@ -90,35 +170,51 @@
 
     document.addEventListener('DOMContentLoaded', function () {
         loadAdminAnalytics();
+        loadFeedback();
     });
 
-    async function loadAdminAnalytics() {
-        try {
-            const res = await fetch('/api/admin/stats', { credentials: 'same-origin' });
+    function renderDashboard(data) {
+        // === CARDS ===
+        document.getElementById("total-positive").innerText = data.pie_chart.Positive;
+        document.getElementById("total-negative").innerText = data.pie_chart.Negative;
+        document.getElementById("total-neutral").innerText = data.pie_chart.Neutral;
 
-            if (res.status === 401 || res.status === 403) {
-                const alertZone = document.getElementById('alert-zone');
-                if (alertZone) {
-                    alertZone.innerHTML = '<span class="badge negative">Admin session expired</span>';
-                }
-                return;
-            }
+        // === RECENT ACTIVITY TABLE ===
+        const table = document.getElementById("recent-table-body");
+        table.innerHTML = "";
 
-            const data = await res.json();
-            console.log('admin stats', data);
-            if (data.error) {
-                throw new Error(data.error);
-            }
+        data.table_data.forEach(item => {
+            table.innerHTML += `
+                <tr>
+                    <td>${item.user}</td>
+                    <td>${item.text}</td>
+                    <td>${item.sentiment}</td>
+                    <td>${item.created_at}</td>
+                </tr>
+            `;
+        });
 
-            renderPieChart(data.pie_chart || {});
-            renderBarChart(data.bar_chart || { labels: [], data: [] });
-            renderLineChart(data.trends || { labels: [], positive: [], negative: [], neutral: [] });
-        } catch (error) {
-            const alertZone = document.getElementById('alert-zone');
-            if (alertZone) {
-                alertZone.innerHTML = '<span class="badge negative">Unable to load analytics</span>';
-            }
-        }
+        // === KEYWORD TRENDS ===
+        const trends = document.getElementById("keyword-trends");
+        trends.innerHTML = "";
+
+        data.keyword_trends.forEach(t => {
+            trends.innerHTML += `<span class="saas-chip">${t[0]} <span style="font-weight:700;margin-left:4px;">${t[1]}</span></span>`;
+        });
+
+        renderPieChart(data.pie_chart || {});
+        renderBarChart(data.bar_chart || { labels: [], data: [] });
+        renderLineChart(data.trends || { labels: [], positive: [], negative: [], neutral: [] });
+    }
+
+    function loadAdminAnalytics() {
+        fetch("/api/admin/stats")
+        .then(res => res.json())
+        .then(data => {
+            console.log("Admin Data:", data);
+            renderDashboard(data);
+        })
+        .catch(err => console.error(err));
     }
 
     function destroyChart(instance) {
@@ -299,33 +395,67 @@
         });
     }
 
-    async function blockUser(email) {
-        if (!confirm(`Block user ${email}?`)) return;
+
+    async function loadFeedback() {
         try {
-            const res = await fetch(`/admin/block`, {
+            const res = await fetch('/api/admin/feedback', { credentials: 'same-origin' });
+            if (!res.ok) return;
+            const data = await res.json();
+            
+            const tbody = document.querySelector('#feedback-table tbody');
+            if(!tbody) return;
+            
+            tbody.innerHTML = '';
+            if(data.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="5" class="text-center text-muted">No feedback found</td></tr>';
+                return;
+            }
+            
+            data.forEach(item => {
+                let badgeStyle = item.status === 'open' ? 'background: #fff7ed; color: #ea580c; border: 1px solid #ffedd5;' : 'background: #f0fdf4; color: #16a34a; border: 1px solid #dcfce7;';
+                let typeColor = item.type === 'Bug Report' || item.type === 'Bug' ? '#f87171' : '#818cf8';
+                tbody.innerHTML += `
+                    <tr>
+                        <td style="font-weight: 600;">${item.user}</td>
+                        <td style="max-width: 250px; white-space: normal; line-height: 1.4; font-size: 0.9rem;">${item.message}</td>
+                        <td><span style="color: ${typeColor}; font-weight: 500;">${item.type}</span></td>
+                        <td><span style="display: inline-block; padding: 4px 10px; border-radius: 999px; font-size: 0.75rem; font-weight: 700; ${badgeStyle}">${item.status.toUpperCase()}</span></td>
+                        <td>
+                            ${item.status === 'open' ? `<button class="mod-btn btn-safe" type="button" onclick="feedbackAction('resolve', '${item._id}')" style="margin-right: 5px;">Resolve</button>` : `<span class="text-muted" style="margin-right: 15px; font-size: 0.85rem;">Resolved</span>`}
+                            <button class="mod-btn btn-block" type="button" onclick="feedbackAction('delete', '${item._id}')">Delete</button>
+                        </td>
+                    </tr>
+                `;
+            });
+        } catch(e) {
+            console.error(e);
+        }
+    }
+    
+    async function feedbackAction(action, id) {
+        if (action === 'delete' && !confirm('Permanently delete this feedback?')) return;
+        try {
+            const res = await fetch(`/admin/feedback/action/${action}/${id}`, {
                 method: 'POST',
-                credentials: 'same-origin',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ email })
+                credentials: 'same-origin'
             });
             const data = await res.json();
-            if (data.success) {
-                alert(data.message || 'User blocked.');
-                window.location.reload();
+            if(data.success) {
+                loadFeedback(); 
             } else {
-                alert('Failed to block: ' + (data.error || 'Unknown error'));
+                alert('Action failed: ' + data.error);
             }
-        } catch (e) {
+        } catch(e) {
             alert('Server error');
         }
     }
 </script>
 
 <script>
-    // Detect back navigation and force redirect
+    // Detect back navigation and force reload
     window.addEventListener("pageshow", function (event) {
         if (event.persisted || performance.getEntriesByType("navigation")[0].type === "back_forward") {
-            window.location.href = "/login";
+            window.location.reload();
         }
     });
 

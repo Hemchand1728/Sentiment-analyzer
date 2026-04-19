@@ -1,11 +1,60 @@
 {% extends 'layout.html' %}
 
 {% block content %}
-<div class="card wide mb-4">
-    <h2>Sentiment Analyzer</h2>
-    <textarea id="text" placeholder="Enter text to analyze..." style="min-height: 120px; margin-bottom: 1.5rem;"></textarea>
-    <button onclick="analyze()">Analyze</button>
-    <div id="result" style="display: none;"></div>
+<div class="sentiment-app">
+    <header class="app-hero">
+        <span class="app-hero-badge">Social listening · NLP-powered</span>
+        <h1 class="app-hero-title">Sentiment intelligence</h1>
+        <p class="app-hero-desc">Measure how audiences feel about topics, brands, and keywords—then dig into the conversation in one place.</p>
+    </header>
+
+    <div class="home-stack">
+        <section class="twitter-analysis-section panel-social" aria-labelledby="panel-social-title">
+            <div class="panel-social-head">
+                <div class="panel-social-icon" aria-hidden="true">
+                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="26" height="26">
+                        <path d="M4 19V5M8 19v-6M12 19V9M16 19v-4M20 19v-9"/>
+                    </svg>
+                </div>
+                <div class="panel-social-intro" id="panel-social-title">
+                    <h2 class="panel-social-title">Twitter sentiment analysis</h2>
+                    <p class="twitter-subtitle">Search any keyword to pull posts and see positive, negative, and neutral breakdowns.</p>
+                </div>
+            </div>
+
+            <div class="twitter-search">
+                <input type="text" id="keyword" placeholder="Search topics, brands, or keywords..." autocomplete="off" />
+                <button type="button" onclick="analyzeTwitter()" id="twitter-analyze-btn"><span class="btn-text">Analyze</span></button>
+            </div>
+
+            <div id="twitter-results"></div>
+        </section>
+
+        <div class="manual-toggle-wrap">
+            <button type="button" id="toggle-manual-sentiment" class="btn-toggle-manual">Analyze your own text</button>
+        </div>
+
+        <div id="manual-sentiment-panel" class="collapsible card wide mb-4 panel-manual">
+            <div class="panel-manual-head">
+                <span class="panel-manual-icon" aria-hidden="true">
+                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="22" height="22">
+                        <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>
+                    </svg>
+                </span>
+                <div class="panel-manual-text">
+                    <h2 class="panel-manual-title">Text sentiment</h2>
+                    <p class="panel-manual-sub">Paste a sentence, review, or comment for an instant sentiment label.</p>
+                </div>
+            </div>
+            <textarea id="text" class="panel-manual-textarea" placeholder="Type a sentence to analyze sentiment..."></textarea>
+            <button type="button" onclick="analyze()" class="btn-manual-submit">Run analysis</button>
+            <div id="result" style="display: none;"></div>
+        </div>
+    </div>
+
+    <footer class="app-footer">
+        <p class="app-footer-text">Sentiment Analyzer · Social listening &amp; NLP</p>
+    </footer>
 </div>
 
 <script>
@@ -27,6 +76,166 @@ fetch('/check-session', {
     }
 });
 </script>
+
+<script>
+async function analyzeTwitter() {
+    const keyword = document.getElementById("keyword").value.trim();
+
+    if (!keyword) {
+        alert("Please enter a keyword");
+        return;
+    }
+
+    const btn = document.getElementById("twitter-analyze-btn");
+    if (btn) {
+        btn.disabled = true;
+        var label = btn.querySelector(".btn-text");
+        if (label) label.textContent = "Analyzing…";
+        else btn.textContent = "Analyzing…";
+    }
+
+    document.getElementById("twitter-results").innerHTML = `
+        <div class="skeleton" style="height: 48px; border-radius: 8px; margin-bottom: 24px;"></div>
+        <div class="skeleton" style="height: 80px; border-radius: 12px; margin-bottom: 12px;"></div>
+        <div class="skeleton" style="height: 80px; border-radius: 12px; margin-bottom: 12px;"></div>
+        <div class="skeleton" style="height: 80px; border-radius: 12px; margin-bottom: 12px;"></div>
+    `;
+
+    try {
+        const res = await fetch("/analyze-twitter", {
+            method: "POST",
+            headers: {
+                "Content-Type": "application/json"
+            },
+            body: JSON.stringify({ keyword }),
+            credentials: "same-origin"
+        });
+
+        const data = await res.json();
+
+        if (!res.ok) {
+            document.getElementById("twitter-results").innerHTML =
+                "<p class=\"twitter-results-error\">" + (data.error || "Request failed") + "</p>";
+            return;
+        }
+
+        const tweets = data.tweets || [];
+        const summary = data.summary || { positive: 0, negative: 0, neutral: 0 };
+        const trending = data.trending || [];
+
+        function esc(s) {
+            return String(s || "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
+        }
+
+        function sentimentClass(s) {
+            var x = String(s || "").toLowerCase();
+            if (x === "positive" || x === "negative" || x === "neutral") return x;
+            return "neutral";
+        }
+
+        function avatarLetter(text) {
+            var m = String(text || "").match(/[a-zA-Z0-9]/);
+            return m ? m[0].toUpperCase() : "?";
+        }
+
+        function fakeTime(i) {
+            var opts = ["now", "2m", "12m", "1h", "3h", "6h", "12h", "1d", "2d"];
+            return opts[i % opts.length];
+        }
+
+        var title = esc(keyword);
+        var html = "";
+        html += `<div class="twitter-results-head">`;
+        html += `<h3>Results for “${title}”</h3>`;
+        html += `<p class="twitter-results-sub">Showing ${data.tweets.length} posts from this search</p>`;
+        html += `</div>`;
+
+        html += `<h4 class="twitter-feed-title">Feed</h4>`;
+        html += `<div class="tweet-feed">`;
+
+        tweets.forEach(function (t, i) {
+            var raw = String(t.tweet || "");
+            var tw = esc(raw);
+            var s = esc(t.sentiment || "Neutral");
+            var sc = sentimentClass(t.sentiment);
+            var letter = esc(avatarLetter(raw));
+            var when = esc(fakeTime(i));
+            var delay = (i * 0.04).toFixed(2);
+            html += `<article class="tweet-item ${sc}" style="animation-delay: ${delay}s">`;
+            html += `<div class="tweet-header">`;
+            html += `<span class="tweet-avatar" aria-hidden="true">${letter}</span>`;
+            html += `<div class="tweet-meta-block">`;
+            html += `<div class="tweet-meta-line">`;
+            html += `<span class="tweet-meta-name">Anonymous User</span>`;
+            html += `<span class="tweet-meta-dot">·</span>`;
+            html += `<span class="tweet-meta-time">${when}</span>`;
+            html += `</div>`;
+            html += `</div>`;
+            html += `<span class="sentiment-badge ${sc}">${s}</span>`;
+            html += `</div>`;
+            html += `<div class="tweet-text">${tw}</div>`;
+            html += `</article>`;
+        });
+
+        html += `</div>`;
+
+        html += `<h4 class="twitter-summary-title">Sentiment overview</h4>`;
+        html += `<div class="twitter-summary-stats">`;
+        html += `<span class="twitter-stat twitter-stat-pos"><span class="twitter-stat-label">Positive</span> ${summary.positive}</span>`;
+        html += `<span class="twitter-stat twitter-stat-neg"><span class="twitter-stat-label">Negative</span> ${summary.negative}</span>`;
+        html += `<span class="twitter-stat twitter-stat-neu"><span class="twitter-stat-label">Neutral</span> ${summary.neutral}</span>`;
+        html += `</div>`;
+
+        html += `<h4 class="twitter-trending-title">Trending with this topic</h4>`;
+        html += `<div class="twitter-trending-tags">`;
+        trending.forEach(function (t) {
+            if (!t || t.length < 2) return;
+            var w = esc(t[0]);
+            var c = esc(t[1]);
+            html += `<span class="saas-chip">${w} <span class="twitter-topic-count">${c}</span></span>`;
+        });
+        html += `</div>`;
+
+        document.getElementById("twitter-results").innerHTML = html;
+    } catch (e) {
+        document.getElementById("twitter-results").innerHTML =
+            "<p class=\"twitter-results-error\">Network error. Try again.</p>";
+    } finally {
+        if (btn) {
+            btn.disabled = false;
+            var labelEl = btn.querySelector(".btn-text");
+            if (labelEl) labelEl.textContent = "Analyze";
+            else btn.textContent = "Analyze";
+        }
+    }
+}
+</script>
+
+<script>
+document.addEventListener("DOMContentLoaded", function () {
+    var kw = document.getElementById("keyword");
+    if (kw) {
+        kw.addEventListener("keypress", function (e) {
+            if (e.key === "Enter") analyzeTwitter();
+        });
+    }
+});
+</script>
+
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+    var toggleBtn = document.getElementById('toggle-manual-sentiment');
+    var manualPanel = document.getElementById('manual-sentiment-panel');
+    if (toggleBtn && manualPanel) {
+        toggleBtn.addEventListener('click', function () {
+            manualPanel.classList.toggle('active');
+            toggleBtn.classList.toggle('is-open');
+        });
+    }
+});
+</script>
+
+
 
 <script src="/static/script.js"></script>
 {% endblock %}
